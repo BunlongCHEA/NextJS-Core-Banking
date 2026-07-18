@@ -46,6 +46,8 @@ export interface Customer {
   dateOfBirth: string | null;
   status: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "BLOCKED";
   customerType: "INDIVIDUAL" | "CORPORATE";
+  bankId: string | null;
+  idType: string | null;
   createdAt: string;
 }
 

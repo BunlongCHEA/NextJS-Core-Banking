@@ -1,53 +1,69 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Search, Loader2, Snowflake, Lock } from "lucide-react";
-import { accountsApi, ApiError } from "@/lib/api";
+import { Search, Loader2, Snowflake, Sun, Lock, Plus, History, ArrowLeftRight } from "lucide-react";
+import { accountsApi, customersApi, ApiError } from "@/lib/api";
 import { PageHeader, Panel, StatusBadge, EmptyState, formatMoney } from "@/components/ui";
-import type { Account } from "@/types";
+import type { Account, Customer } from "@/types";
+import NewAccountDialog from "./NewAccountDialog";
+import TransactionDrawer from "./TransactionDrawer";
 
 export default function AccountsPage() {
-  const [customerId, setCustomerId] = useState("");
+  const [query, setQuery] = useState("");
+  const [customer, setCustomer] = useState<Customer | null>(null);
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [newAccountOpen, setNewAccountOpen] = useState(false);
+  const [txAccount, setTxAccount] = useState<Account | null>(null);
 
   async function handleSearch(e: FormEvent) {
     e.preventDefault();
-    if (!customerId.trim()) return;
+    const term = query.trim();
+    if (!term) return;
     setLoading(true);
     setError(null);
+    setCustomer(null);
+    setAccounts(null);
     try {
-      const res = await accountsApi.byCustomer(customerId.trim());
-      setAccounts(res.data);
+      // UUID-looking input → treat as customerId directly; otherwise search by name/email/phone
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(term);
+      let matchedCustomer: Customer;
+      if (isUuid) {
+        matchedCustomer = (await customersApi.findById(term)).data;
+      } else {
+        const res = await customersApi.search({ search: term, page: 0, size: 1 });
+        if (res.data.content.length === 0) throw new Error("No customer matched that search.");
+        matchedCustomer = res.data.content[0];
+      }
+      setCustomer(matchedCustomer);
+      const accts = await accountsApi.byCustomer(matchedCustomer.customerId);
+      setAccounts(accts.data);
     } catch (err) {
       setAccounts([]);
-      setError(err instanceof ApiError ? err.message : "Could not load accounts.");
+      setError(err instanceof ApiError || err instanceof Error ? err.message : "Could not load accounts.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleFreeze(accountId: string) {
-    setBusyId(accountId);
-    try {
-      await accountsApi.freeze(accountId);
-      setAccounts((prev) => prev?.map((a) => (a.accountId === accountId ? { ...a, status: "FROZEN" } : a)) ?? prev);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not freeze account.");
-    } finally {
-      setBusyId(null);
-    }
+  async function refreshAccounts() {
+    if (!customer) return;
+    const res = await accountsApi.byCustomer(customer.customerId);
+    setAccounts(res.data);
   }
 
-  async function handleClose(accountId: string) {
+  async function handleStatusAction(accountId: string, action: "freeze" | "unfreeze" | "close") {
     setBusyId(accountId);
+    setError(null);
     try {
-      await accountsApi.close(accountId);
-      setAccounts((prev) => prev?.map((a) => (a.accountId === accountId ? { ...a, status: "CLOSED" } : a)) ?? prev);
+      if (action === "freeze") await accountsApi.freeze(accountId);
+      if (action === "unfreeze") await accountsApi.unfreeze(accountId);
+      if (action === "close") await accountsApi.close(accountId);
+      await refreshAccounts();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not close account — balance may be non-zero.");
+      setError(err instanceof ApiError ? err.message : `Could not ${action} account.`);
     } finally {
       setBusyId(null);
     }
@@ -55,20 +71,33 @@ export default function AccountsPage() {
 
   return (
     <div>
-      <PageHeader title="Accounts" description="Look up a customer's accounts by their customer ID." />
+      <PageHeader
+        title="Accounts"
+        description="Search a customer to view, open, and manage their accounts."
+        action={
+          customer && (
+            <button
+              onClick={() => setNewAccountOpen(true)}
+              className="flex items-center gap-2 rounded-md bg-vault-950 px-4 py-2 text-sm font-medium text-white hover:bg-vault-800"
+            >
+              <Plus className="h-4 w-4" /> New account
+            </button>
+          )
+        }
+      />
 
       <form onSubmit={handleSearch} className="mb-5 flex max-w-lg items-center gap-2">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-vault-400" />
           <input
-            value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
-            placeholder="Customer ID (UUID)"
-            className="w-full rounded-md border border-ledger-line bg-white py-2 pl-9 pr-3 font-mono text-sm focus:border-signal-teal focus:outline-none focus:ring-1 focus:ring-signal-teal"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Customer name, email, phone, or customer ID"
+            className="w-full rounded-md border border-ledger-line bg-white py-2 pl-9 pr-3 text-sm focus:border-signal-teal focus:outline-none focus:ring-1 focus:ring-signal-teal"
           />
         </div>
         <button type="submit" className="rounded-md bg-vault-950 px-4 py-2 text-sm font-medium text-white hover:bg-vault-800">
-          Load accounts
+          Search
         </button>
       </form>
 
@@ -79,11 +108,18 @@ export default function AccountsPage() {
       )}
 
       {!loading && accounts === null && (
-        <Panel><EmptyState title="No customer loaded yet" hint="Paste a customer ID above to see their accounts." /></Panel>
+        <Panel><EmptyState title="No customer loaded yet" hint="Search above to see a customer's accounts." /></Panel>
+      )}
+
+      {!loading && customer && (
+        <p className="mb-4 text-sm text-vault-600">
+          <span className="font-medium text-vault-950">{customer.fullName}</span>{" "}
+          <span className="font-mono text-xs text-vault-400">({customer.customerCode})</span>
+        </p>
       )}
 
       {!loading && accounts && accounts.length === 0 && (
-        <Panel><EmptyState title="This customer has no accounts" hint={error ?? undefined} /></Panel>
+        <Panel><EmptyState title="This customer has no accounts" hint={error ?? "Open a new account to get started."} /></Panel>
       )}
 
       {!loading && accounts && accounts.length > 0 && (
@@ -108,28 +144,72 @@ export default function AccountsPage() {
                 <dd className="text-right font-mono">{formatMoney(a.dailyLimit, a.currencyCode)}</dd>
               </dl>
 
-              {a.status === "ACTIVE" && (
-                <div className="mt-4 flex gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
+                {a.status === "ACTIVE" && (
                   <button
-                    onClick={() => handleFreeze(a.accountId)}
+                    onClick={() => setTxAccount(a)}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-vault-950 px-3 py-1.5 text-xs font-medium text-white hover:bg-vault-800"
+                  >
+                    <ArrowLeftRight className="h-3.5 w-3.5" /> Transact
+                  </button>
+                )}
+                <button
+                  onClick={() => setTxAccount(a)}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-ledger-line px-3 py-1.5 text-xs font-medium text-vault-700 hover:bg-vault-50"
+                >
+                  <History className="h-3.5 w-3.5" /> History
+                </button>
+
+                {a.status === "ACTIVE" && (
+                  <>
+                    <button
+                      onClick={() => handleStatusAction(a.accountId, "freeze")}
+                      disabled={busyId === a.accountId}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-ledger-line px-3 py-1.5 text-xs font-medium text-vault-700 hover:bg-vault-50 disabled:opacity-50"
+                    >
+                      <Snowflake className="h-3.5 w-3.5" /> Freeze
+                    </button>
+                    <button
+                      onClick={() => handleStatusAction(a.accountId, "close")}
+                      disabled={busyId === a.accountId}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-ledger-line px-3 py-1.5 text-xs font-medium text-vault-700 hover:bg-vault-50 disabled:opacity-50"
+                    >
+                      <Lock className="h-3.5 w-3.5" /> Close
+                    </button>
+                  </>
+                )}
+                {a.status === "FROZEN" && (
+                  <button
+                    onClick={() => handleStatusAction(a.accountId, "unfreeze")}
                     disabled={busyId === a.accountId}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-ledger-line px-3 py-1.5 text-xs font-medium text-vault-700 hover:bg-vault-50 disabled:opacity-50"
                   >
-                    <Snowflake className="h-3.5 w-3.5" /> Freeze
+                    <Sun className="h-3.5 w-3.5" /> Unfreeze
                   </button>
-                  <button
-                    onClick={() => handleClose(a.accountId)}
-                    disabled={busyId === a.accountId}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-ledger-line px-3 py-1.5 text-xs font-medium text-vault-700 hover:bg-vault-50 disabled:opacity-50"
-                  >
-                    <Lock className="h-3.5 w-3.5" /> Close
-                  </button>
-                </div>
-              )}
+                )}
+              </div>
             </Panel>
           ))}
         </div>
       )}
+
+      {customer && (
+        <NewAccountDialog
+          open={newAccountOpen}
+          customerId={customer.customerId}
+          onClose={() => setNewAccountOpen(false)}
+          onCreated={() => {
+            setNewAccountOpen(false);
+            refreshAccounts();
+          }}
+        />
+      )}
+
+      <TransactionDrawer
+        account={txAccount}
+        onClose={() => setTxAccount(null)}
+        onChanged={refreshAccounts}
+      />
     </div>
   );
 }

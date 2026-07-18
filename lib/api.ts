@@ -92,29 +92,44 @@ export const customersApi = {
     return request<ApiResponse<PageResponse<Customer>>>(`/customers?${qs.toString()}`);
   },
   findById: (customerId: string) => request<ApiResponse<Customer>>(`/customers/${customerId}`),
-  create: (payload: {
-    fullName: string;
-    email: string;
-    phone: string;
-    nationalId?: string;
-    dateOfBirth?: string;
-    customerType: "INDIVIDUAL" | "CORPORATE";
+
+  // Flow B — create only after Go-KYC verification
+  createFromKyc: (payload: {
+    idType: string;
+    idNumber: string;
+    bankId: string;
+    branchId?: string;
   }) =>
-    request<ApiResponse<Customer>>("/customers", {
+    request<CustomerResponseRaw>("/customers/kyc-verified", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  // Flow C — re-verify + sync address for an existing customer
+  syncAddressFromKyc: (
+    customerId: string,
+    payload: { idType: string; idNumber: string; bankId: string }
+  ) =>
+    request<ApiResponse<Customer>>(`/customers/${customerId}/address/kyc`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+
   updateStatus: (customerId: string, status: string) =>
     request<ApiResponse<void>>(`/customers/${customerId}/status?status=${status}`, {
       method: "PATCH",
     }),
 };
 
+// createFromKyc returns the CustomerResponse record directly (no ApiResponse wrapper) —
+// see CustomerController.createFromKyc, which returns ResponseEntity<CustomerResponse>.
+type CustomerResponseRaw = Customer;
+
 // ── Accounts ──────────────────────────────────────────────────
 export const accountsApi = {
-  byCustomer: (customerId: string) =>
-    request<ApiResponse<Account[]>>(`/accounts/customers/${customerId}`),
+  byCustomer: (customerId: string) => request<ApiResponse<Account[]>>(`/accounts/customers/${customerId}`),
   findById: (accountId: string) => request<ApiResponse<Account>>(`/accounts/${accountId}`),
+  findByNumber: (accountNumber: string) => request<ApiResponse<Account>>(`/accounts/number/${accountNumber}`),
   balance: (accountId: string) => request<ApiResponse<number>>(`/accounts/${accountId}/balance`),
   create: (
     customerId: string,
@@ -126,6 +141,8 @@ export const accountsApi = {
     }),
   freeze: (accountId: string) =>
     request<ApiResponse<void>>(`/accounts/${accountId}/freeze`, { method: "PATCH" }),
+  unfreeze: (accountId: string) =>                                            // ← new
+    request<ApiResponse<void>>(`/accounts/${accountId}/unfreeze`, { method: "PATCH" }),
   close: (accountId: string) =>
     request<ApiResponse<void>>(`/accounts/${accountId}/close`, { method: "PATCH" }),
 };
