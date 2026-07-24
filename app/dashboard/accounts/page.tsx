@@ -133,7 +133,7 @@ export default function AccountsPage() {
               <p className="mt-3 font-display text-2xl font-semibold text-vault-950">
                 {formatMoney(a.availableBalance, a.currencyCode)}
               </p>
-              <p className="text-xs text-vault-500">{a.accountType} · available balance</p>
+              <p className="text-xs text-vault-500">{a.accountType.name} · available balance</p>
 
               <dl className="mt-4 grid grid-cols-2 gap-y-1 text-xs text-vault-600">
                 <dt>Ledger balance</dt>

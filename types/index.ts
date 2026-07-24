@@ -56,7 +56,7 @@ export interface Account {
   accountId: string;
   accountNumber: string;
   customerId: string;
-  accountType: "SAVINGS" | "CHECKING" | "LOAN" | "FIXED_DEPOSIT" | "CURRENT";
+  accountType: { accountTypeId: string; code: string; name: string };
   currencyCode: string;
   balance: number;
   availableBalance: number;
@@ -65,6 +65,15 @@ export interface Account {
   dailyLimit: number;
   openedAt: string | null;
   createdAt: string;
+}
+
+// dto/response/AccountTypeResponse.java
+export interface AccountType {
+  accountTypeId: string;
+  code: string;
+  name: string;
+  isCreditNature: boolean;
+  isActive: boolean;
 }
 
 // dto/response/TransactionResponse.java
@@ -134,4 +143,12 @@ export interface JwtClaims {
   role: UserRole;
   iat: number;
   exp: number;
+}
+
+export interface Currency {
+  currencyCode: string;
+  name: string;
+  symbol: string;
+  decimalPlaces: number;
+  isActive: boolean;
 }

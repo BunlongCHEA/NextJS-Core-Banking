@@ -11,6 +11,8 @@ import type {
   PageResponse,
   Transaction,
   CbsUser,
+  Currency,
+  AccountType,
 } from "@/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1";
@@ -133,7 +135,7 @@ export const accountsApi = {
   balance: (accountId: string) => request<ApiResponse<number>>(`/accounts/${accountId}/balance`),
   create: (
     customerId: string,
-    payload: { accountType: string; currencyCode: string; dailyLimit?: number }
+    payload: { accountTypeId: string; currencyCode: string; dailyLimit?: number }
   ) =>
     request<ApiResponse<Account>>(`/accounts/customers/${customerId}`, {
       method: "POST",
@@ -217,4 +219,14 @@ export const loansApi = {
       body: JSON.stringify(payload),
     }),
   disburse: (loanId: string) => request<ApiResponse<Loan>>(`/loans/${loanId}/disburse`, { method: "PATCH" }),
+};
+
+// ── Currencies ─────────────────────────────────────────────────
+export const currenciesApi = {
+  list: () => request<ApiResponse<Currency[]>>("/currencies"),
+};
+
+// ── Account Types ───────────────────────────────────────────────
+export const accountTypesApi = {
+  list: () => request<ApiResponse<AccountType[]>>("/account-types"),
 };
