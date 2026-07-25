@@ -13,6 +13,7 @@ import type {
   CbsUser,
   Currency,
   AccountType,
+  Channel,
 } from "@/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1";
@@ -229,4 +230,16 @@ export const currenciesApi = {
 // ── Account Types ───────────────────────────────────────────────
 export const accountTypesApi = {
   list: () => request<ApiResponse<AccountType[]>>("/account-types"),
+};
+
+// ── Channels ───────────────────────────────────────────────────
+export const channelsApi = {
+  list: () => request<ApiResponse<Channel[]>>("/channels"),
+};
+
+// ── Settings ───────────────────────────────────────────────────
+export const settingsApi = {
+  get: (key: string) => request<ApiResponse<{ settingKey: string; value: string; description: string }>>(`/settings/${key}`),
+  update: (key: string, value: string) =>
+    request<ApiResponse<void>>(`/settings/${key}`, { method: "PATCH", body: JSON.stringify({ value }) }),
 };

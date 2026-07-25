@@ -138,6 +138,13 @@ export interface CbsUser {
   createdAt: string;
 }
 
+export interface Channel { 
+  channelId: string;
+  code: string; 
+  name: string; 
+  isActive: boolean; 
+}
+
 export interface JwtClaims {
   sub: string;
   role: UserRole;
