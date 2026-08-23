@@ -101,6 +101,7 @@ export interface Card {
   expiryDate: string;
   status: "ACTIVE" | "INACTIVE" | "BLOCKED" | "EXPIRED" | "PENDING";
   dailyLimit: number;
+  currencyCode: string;
   contactlessEnabled: boolean;
   internationalEnabled: boolean;
   issuedAt: string | null;

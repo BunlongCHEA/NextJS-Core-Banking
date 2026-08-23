@@ -199,12 +199,11 @@ export const transactionsApi = {
 export const cardsApi = {
   byAccount: (accountId: string) => request<ApiResponse<Card[]>>(`/cards/accounts/${accountId}`),
   issue: (accountId: string, payload: { cardType: string; dailyLimit?: number }) =>
-    request<ApiResponse<Card>>(`/cards/accounts/${accountId}`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
+    request<ApiResponse<Card>>(`/cards/accounts/${accountId}`, { method: "POST", body: JSON.stringify(payload) }),
   block: (cardId: string) => request<ApiResponse<Card>>(`/cards/${cardId}/block`, { method: "PATCH" }),
+  unblock: (cardId: string) => request<ApiResponse<Card>>(`/cards/${cardId}/unblock`, { method: "PATCH" }),
   activate: (cardId: string) => request<ApiResponse<Card>>(`/cards/${cardId}/activate`, { method: "PATCH" }),
+  deactivate: (cardId: string) => request<ApiResponse<Card>>(`/cards/${cardId}/deactivate`, { method: "PATCH" }),
 };
 
 // ── Loans ─────────────────────────────────────────────────────
