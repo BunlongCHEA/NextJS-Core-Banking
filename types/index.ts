@@ -111,17 +111,29 @@ export interface Card {
 export interface Loan {
   loanId: string;
   loanNumber: string;
-  accountId: string;
+  customerId: string;
+  accountId: string | null;
   principal: number;
   outstandingBalance: number;
   interestRate: number;
   termMonths: number;
   monthlyInstallment: number;
   currencyCode: string;
-  status: "PENDING" | "DISBURSED" | "ACTIVE" | "CLOSED" | "DEFAULTED" | "WRITTEN_OFF";
+  status: "PENDING" | "APPROVED" | "REJECTED" | "DISBURSED" | "ACTIVE" | "CLOSED" | "DEFAULTED" | "WRITTEN_OFF";
+  overdue: boolean;
   disbursedAt: string | null;
   maturityDate: string | null;
   nextPaymentDate: string | null;
+  rejectionReason: string | null;
+}
+
+export interface LoanPayment {
+  loanPaymentId: string; 
+  amount: number; 
+  principalPortion: number;
+  interestPortion: number; 
+  outstandingAfter: number; 
+  paidAt: string;
 }
 
 // dto/response/UserResponse.java

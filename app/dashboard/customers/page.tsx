@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Plus, Loader2, RefreshCw } from "lucide-react";
+import { Search, Plus, Loader2, RefreshCw, ChevronDown } from "lucide-react";
 import { customersApi, ApiError } from "@/lib/api";
 import { PageHeader, Panel, StatusBadge, EmptyState } from "@/components/ui";
 import type { Customer } from "@/types";
 import NewCustomerDialog from "./NewCustomerDialog";
 import SyncKycDialog from "./SyncKycDialog";
+import ManualCreateCustomerDialog from "./ManualCreateCustomerDialog";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -15,6 +16,23 @@ export default function CustomersPage() {
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [syncTarget, setSyncTarget] = useState<Customer | null>(null);
+  // state additions
+  const [manualDialogOpen, setManualDialogOpen] = useState(false);
+  const [statusBusyId, setStatusBusyId] = useState<string | null>(null);
+
+  const STATUSES = ["ACTIVE", "INACTIVE", "SUSPENDED", "BLOCKED"] as const;
+
+  async function handleStatusChange(customerId: string, status: string) {
+    setStatusBusyId(customerId);
+    try {
+      await customersApi.updateStatus(customerId, status);
+      await load(search);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not update status.");
+    } finally {
+      setStatusBusyId(null);
+    }
+  }
 
   async function load(searchTerm = "") {
     setLoading(true);
@@ -39,12 +57,16 @@ export default function CustomersPage() {
         title="Customers"
         description="Search existing profiles or onboard a new one via verified KYC."
         action={
-          <button
-            onClick={() => setDialogOpen(true)}
-            className="flex items-center gap-2 rounded-md bg-vault-950 px-4 py-2 text-sm font-medium text-white hover:bg-vault-800"
-          >
-            <Plus className="h-4 w-4" /> New customer (KYC)
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => setManualDialogOpen(true)}
+              className="flex items-center gap-2 rounded-md border border-ledger-line bg-white px-4 py-2 text-sm font-medium text-vault-700 hover:bg-vault-50">
+              <Plus className="h-4 w-4" /> Add manually
+            </button>
+            <button onClick={() => setDialogOpen(true)}
+              className="flex items-center gap-2 rounded-md bg-vault-950 px-4 py-2 text-sm font-medium text-white hover:bg-vault-800">
+              <Plus className="h-4 w-4" /> New customer (KYC)
+            </button>
+          </div>
         }
       />
 
@@ -101,7 +123,17 @@ export default function CustomersPage() {
                   <td className="px-5 py-3 text-vault-600">{c.phone}</td>
                   <td className="px-5 py-3 text-vault-600">{c.customerType}</td>
                   <td className="px-5 py-3 font-mono text-xs text-vault-600">{c.bankId ?? "—"}</td>
-                  <td className="px-5 py-3"><StatusBadge status={c.status} /></td>
+                  {/* <td className="px-5 py-3"><StatusBadge status={c.status} /></td> */}
+                  <td className="px-5 py-3">
+                    <select
+                      value={c.status}
+                      disabled={statusBusyId === c.customerId}
+                      onChange={(e) => handleStatusChange(c.customerId, e.target.value)}
+                      className="rounded-md border border-ledger-line bg-white px-2 py-1 text-xs font-medium focus:border-signal-teal focus:outline-none focus:ring-1 focus:ring-signal-teal disabled:opacity-50"
+                    >
+                      {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </td>
                   <td className="px-5 py-3 text-right">
                     <button
                       onClick={() => setSyncTarget(c)}
@@ -133,6 +165,12 @@ export default function CustomersPage() {
           setSyncTarget(null);
           load(search);
         }}
+      />
+
+      <ManualCreateCustomerDialog
+        open={manualDialogOpen}
+        onClose={() => setManualDialogOpen(false)}
+        onCreated={() => { setManualDialogOpen(false); load(search); }}
       />
     </div>
   );

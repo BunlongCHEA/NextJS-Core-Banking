@@ -14,6 +14,7 @@ import type {
   Currency,
   AccountType,
   Channel,
+  LoanPayment,
 } from "@/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1";
@@ -76,12 +77,25 @@ export const authApi = {
 
 // ── Users (employee accounts) ────────────────────────────────
 export const usersApi = {
-  changePassword: (userId: string, payload: { currentPassword: string; newPassword: string; confirmPassword: string }) =>
-    request<void>(`/users/${userId}/change-password`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
+  search: (params: { role?: string; isActive?: boolean; page?: number; size?: number }) => {
+    const qs = new URLSearchParams();
+    if (params.role) qs.set("role", params.role);
+    if (params.isActive !== undefined) qs.set("isActive", String(params.isActive));
+    qs.set("page", String(params.page ?? 0));
+    qs.set("size", String(params.size ?? 20));
+    return request<ApiResponse<PageResponse<CbsUser>>>(`/users?${qs.toString()}`);
+  },
   findById: (userId: string) => request<CbsUser>(`/users/${userId}`),
+  create: (payload: { username: string; email: string; initialPassword: string; role: string; branchId?: string }) =>
+    request<CbsUser>("/users", { method: "POST", body: JSON.stringify(payload) }),
+  changePassword: (userId: string, payload: { currentPassword: string; newPassword: string; confirmPassword: string }) =>
+    request<void>(`/users/${userId}/change-password`, { method: "POST", body: JSON.stringify(payload) }),
+  deactivate: (userId: string) => request<void>(`/users/${userId}`, { method: "DELETE" }),
+  reactivate: (userId: string) =>
+    request<ApiResponse<void>>(`/users/${userId}/reactivate`, { method: "PATCH" }),
+  resetPassword: (userId: string) =>
+    request<ApiResponse<{ tempPassword: string }>>(`/users/${userId}/reset-password`, { method: "POST" }),
+  generatePassword: () => request<{ password: string }>("/users/generate-password"),
 };
 
 // ── Customers ─────────────────────────────────────────────────
@@ -95,6 +109,21 @@ export const customersApi = {
     return request<ApiResponse<PageResponse<Customer>>>(`/customers?${qs.toString()}`);
   },
   findById: (customerId: string) => request<ApiResponse<Customer>>(`/customers/${customerId}`),
+
+  // Manual creation — bypasses Go-KYC verification. Restricted server-side
+  // to SUPER_ADMIN/ADMIN; prefer createFromKyc whenever possible.
+  create: (payload: {
+    fullName: string;
+    email: string;
+    phone: string;
+    nationalId?: string;
+    dateOfBirth?: string;
+    customerType: "INDIVIDUAL" | "CORPORATE";
+  }) =>
+    request<ApiResponse<Customer>>("/customers", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 
   // Flow B — create only after Go-KYC verification
   createFromKyc: (payload: {
@@ -208,17 +237,16 @@ export const cardsApi = {
 
 // ── Loans ─────────────────────────────────────────────────────
 export const loansApi = {
-  byAccount: (accountId: string) => request<ApiResponse<Loan[]>>(`/loans/accounts/${accountId}`),
+  byCustomer: (customerId: string) => request<ApiResponse<Loan[]>>(`/loans/customers/${customerId}`),
   findById: (loanId: string) => request<ApiResponse<Loan>>(`/loans/${loanId}`),
-  apply: (
-    accountId: string,
-    payload: { principal: number; interestRate: number; termMonths: number; currencyCode: string }
-  ) =>
-    request<ApiResponse<Loan>>(`/loans/accounts/${accountId}`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
+  apply: (customerId: string, payload: { principal: number; interestRate: number; termMonths: number; currencyCode: string; disbursementAccountNumber: string }) =>
+    request<ApiResponse<Loan>>(`/loans/customers/${customerId}`, { method: "POST", body: JSON.stringify(payload) }),
+  approve: (loanId: string) => request<ApiResponse<Loan>>(`/loans/${loanId}/approve`, { method: "PATCH" }),
+  reject: (loanId: string, reason: string) => request<ApiResponse<Loan>>(`/loans/${loanId}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
   disburse: (loanId: string) => request<ApiResponse<Loan>>(`/loans/${loanId}/disburse`, { method: "PATCH" }),
+  recordPayment: (loanId: string, payload: { idempotencyKey: string; payingAccountNumber: string; amount: number }) =>
+    request<ApiResponse<Loan>>(`/loans/${loanId}/payments`, { method: "POST", body: JSON.stringify(payload) }),
+  payments: (loanId: string) => request<ApiResponse<LoanPayment[]>>(`/loans/${loanId}/payments`),
 };
 
 // ── Currencies ─────────────────────────────────────────────────
