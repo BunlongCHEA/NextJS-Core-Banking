@@ -15,6 +15,7 @@ import type {
   AccountType,
   Channel,
   LoanPayment,
+  AuditLog,
 } from "@/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1";
@@ -92,11 +93,9 @@ export const usersApi = {
     request<void>(`/users/${userId}/change-password`, { method: "POST", body: JSON.stringify(payload) }),
   // deactivate: (userId: string) => request<void>(`/users/${userId}`, { method: "DELETE" }),
   deactivate: (userId: string) => request<ApiResponse<void>>(`/users/${userId}/deactivate`, { method: "PATCH" }),
+  reactivate: (userId: string) => request<ApiResponse<void>>(`/users/${userId}/reactivate`, { method: "PATCH" }),
   remove: (userId: string) => request<ApiResponse<void>>(`/users/${userId}`, { method: "DELETE" }),
-  reactivate: (userId: string) =>
-    request<ApiResponse<void>>(`/users/${userId}/reactivate`, { method: "PATCH" }),
-  resetPassword: (userId: string) =>
-    request<ApiResponse<{ tempPassword: string }>>(`/users/${userId}/reset-password`, { method: "POST" }),
+  resetPassword: (userId: string) => request<ApiResponse<{ tempPassword: string }>>(`/users/${userId}/reset-password`, { method: "POST" }),
   generatePassword: () => request<{ password: string }>("/users/generate-password"),
 };
 
@@ -271,4 +270,13 @@ export const settingsApi = {
   get: (key: string) => request<ApiResponse<{ settingKey: string; value: string; description: string }>>(`/settings/${key}`),
   update: (key: string, value: string) =>
     request<ApiResponse<void>>(`/settings/${key}`, { method: "PATCH", body: JSON.stringify({ value }) }),
+};
+
+// ── Audits ───────────────────────────────────────────────────
+export const auditApi = {
+  search: (params: { entityType?: string; entityId?: string; action?: string; page?: number; size?: number }) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) qs.set(k, String(v)); });
+    return request<ApiResponse<PageResponse<AuditLog>>>(`/audit?${qs.toString()}`);
+  },
 };

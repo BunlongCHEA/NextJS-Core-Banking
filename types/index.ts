@@ -172,3 +172,17 @@ export interface Currency {
   decimalPlaces: number;
   isActive: boolean;
 }
+
+export interface AuditLog {
+  auditId: string;
+  entityType: string;
+  entityId: string | null;
+  action: string;
+  changedBy: string | null;
+  changedByRole: string | null;
+  ipAddress: string | null;
+  oldValue: Record<string, unknown> | null;
+  newValue: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+  changedAt: string;
+}
