@@ -5,6 +5,7 @@ import { Search, Loader2, Plus, Send, Check, X as XIcon, Banknote } from "lucide
 import { loansApi, accountsApi, customersApi, currenciesApi, ApiError } from "@/lib/api";
 import { PageHeader, Panel, StatusBadge, EmptyState, formatMoney } from "@/components/ui";
 import type { Loan, LoanPayment, Currency, Customer, Account } from "@/types";
+import { useConfirmDialog } from "@/components/ConfirmDialogProvider";
 
 function newIdempotencyKey() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
@@ -22,6 +23,7 @@ export default function LoansPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [payDialogLoan, setPayDialogLoan] = useState<Loan | null>(null);
   const [historyLoan, setHistoryLoan] = useState<Loan | null>(null);
+  const { prompt } = useConfirmDialog();
 
   useEffect(() => { currenciesApi.list().then((res) => setCurrencies(res.data)); }, []);
 
@@ -67,7 +69,13 @@ export default function LoansPage() {
   }
 
   async function handleReject(loan: Loan) {
-    const reason = window.prompt("Reason for rejection:");
+    const reason = await prompt({
+      title: "Reject loan application",
+      message: `Provide a reason for rejecting ${loan.loanNumber}.`,
+      requireInput: { placeholder: "e.g. Insufficient income documentation" },
+      confirmLabel: "Reject",
+      destructive: true,
+    });
     if (!reason) return;
     setBusyId(loan.loanId);
     try {

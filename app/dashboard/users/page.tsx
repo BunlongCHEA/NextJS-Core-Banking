@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Loader2, ShieldAlert, Plus, RotateCcw, KeyRound, UserX, X } from "lucide-react";
+import { Loader2, ShieldAlert, Plus, RotateCcw, KeyRound, UserX, X, Trash2 } from "lucide-react";
 import { usersApi, ApiError } from "@/lib/api";
 import { PageHeader, Panel, StatusBadge, EmptyState } from "@/components/ui";
+import { useConfirmDialog } from "@/components/ConfirmDialogProvider";
 import { getRole } from "@/lib/auth";
 import type { CbsUser, UserRole } from "@/types";
 
-const ROLES: UserRole[] = ["SUPER_ADMIN", "ADMIN", "CUSTOMER_SERVICE", "TELLER", "AUDITOR"];
+const ROLES: UserRole[] = ["ADMIN", "CUSTOMER_SERVICE", "TELLER", "AUDITOR"];
 
 export default function UsersPage() {
   const role = getRole();
@@ -18,6 +19,7 @@ export default function UsersPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [tempPassword, setTempPassword] = useState<{ username: string; password: string } | null>(null);
+  const { confirm } = useConfirmDialog();
 
   if (role !== "SUPER_ADMIN" && role !== "ADMIN") {
     return (
@@ -44,13 +46,38 @@ export default function UsersPage() {
   useEffect(() => { load(); }, [roleFilter]);
 
   async function handleDeactivate(u: CbsUser) {
-    if (!window.confirm(`Deactivate ${u.username}?`)) return;
+    const ok = await confirm({
+      title: "Deactivate employee",
+      message: `Deactivate ${u.username}? They will be unable to log in until reactivated.`,
+      confirmLabel: "Deactivate",
+      destructive: true,
+    });
+    if (!ok) return;
     setBusyId(u.userId);
     try {
       await usersApi.deactivate(u.userId);
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not deactivate user.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleRemove(u: CbsUser) {
+    const ok = await confirm({
+      title: "Remove from portal",
+      message: `Remove ${u.username} from the CBS portal? Their record is retained in the database but hidden from this UI going forward.`,
+      confirmLabel: "Remove",
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusyId(u.userId);
+    try {
+      await usersApi.remove(u.userId);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not remove user.");
     } finally {
       setBusyId(null);
     }
@@ -69,7 +96,12 @@ export default function UsersPage() {
   }
 
   async function handleResetPassword(u: CbsUser) {
-    if (!window.confirm(`Reset ${u.username}'s password? They will be forced to set a new one on next login.`)) return;
+    const ok = await confirm({
+      title: "Reset password",
+      message: `Reset ${u.username}'s password? They will be forced to set a new one on next login.`,
+      confirmLabel: "Reset",
+    });
+    if (!ok) return;
     setBusyId(u.userId);
     try {
       const res = await usersApi.resetPassword(u.userId);
@@ -138,16 +170,25 @@ export default function UsersPage() {
                         className="flex items-center gap-1 rounded-md border border-ledger-line px-2.5 py-1.5 text-xs font-medium text-vault-700 hover:bg-vault-50 disabled:opacity-50">
                         <KeyRound className="h-3.5 w-3.5" /> Reset password
                       </button>
-                      {u.isActive ? (
-                        <button onClick={() => handleDeactivate(u)} disabled={busyId === u.userId}
-                          className="flex items-center gap-1 rounded-md border border-ledger-line px-2.5 py-1.5 text-xs font-medium text-signal-rose hover:bg-red-50 disabled:opacity-50">
-                          <UserX className="h-3.5 w-3.5" /> Deactivate
-                        </button>
-                      ) : (
-                        <button onClick={() => handleReactivate(u)} disabled={busyId === u.userId}
-                          className="flex items-center gap-1 rounded-md border border-ledger-line px-2.5 py-1.5 text-xs font-medium text-vault-700 hover:bg-vault-50 disabled:opacity-50">
-                          <RotateCcw className="h-3.5 w-3.5" /> Reactivate
-                        </button>
+
+                      {u.role !== "SUPER_ADMIN" && (
+                        <>
+                          {u.isActive ? (
+                            <button onClick={() => handleDeactivate(u)} disabled={busyId === u.userId}
+                              className="flex items-center gap-1 rounded-md border border-ledger-line px-2.5 py-1.5 text-xs font-medium text-signal-rose hover:bg-red-50 disabled:opacity-50">
+                              <UserX className="h-3.5 w-3.5" /> Deactivate
+                            </button>
+                          ) : (
+                            <button onClick={() => handleReactivate(u)} disabled={busyId === u.userId}
+                              className="flex items-center gap-1 rounded-md border border-ledger-line px-2.5 py-1.5 text-xs font-medium text-vault-700 hover:bg-vault-50 disabled:opacity-50">
+                              <RotateCcw className="h-3.5 w-3.5" /> Reactivate
+                            </button>
+                          )}
+                          <button onClick={() => handleRemove(u)} disabled={busyId === u.userId}
+                            className="flex items-center gap-1 rounded-md border border-ledger-line px-2.5 py-1.5 text-xs font-medium text-signal-rose hover:bg-red-50 disabled:opacity-50">
+                            <Trash2 className="h-3.5 w-3.5" /> Remove
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>

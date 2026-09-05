@@ -90,7 +90,9 @@ export const usersApi = {
     request<CbsUser>("/users", { method: "POST", body: JSON.stringify(payload) }),
   changePassword: (userId: string, payload: { currentPassword: string; newPassword: string; confirmPassword: string }) =>
     request<void>(`/users/${userId}/change-password`, { method: "POST", body: JSON.stringify(payload) }),
-  deactivate: (userId: string) => request<void>(`/users/${userId}`, { method: "DELETE" }),
+  // deactivate: (userId: string) => request<void>(`/users/${userId}`, { method: "DELETE" }),
+  deactivate: (userId: string) => request<ApiResponse<void>>(`/users/${userId}/deactivate`, { method: "PATCH" }),
+  remove: (userId: string) => request<ApiResponse<void>>(`/users/${userId}`, { method: "DELETE" }),
   reactivate: (userId: string) =>
     request<ApiResponse<void>>(`/users/${userId}/reactivate`, { method: "PATCH" }),
   resetPassword: (userId: string) =>
