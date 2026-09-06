@@ -56,7 +56,7 @@ export interface Account {
   accountId: string;
   accountNumber: string;
   customerId: string;
-  accountType: { accountTypeId: string; code: string; name: string };
+  accountType: { accountTypeId: string; code: string; name: string; isCreditNature: boolean };
   currencyCode: string;
   balance: number;
   availableBalance: number;
