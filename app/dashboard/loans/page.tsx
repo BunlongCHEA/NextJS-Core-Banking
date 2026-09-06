@@ -299,7 +299,7 @@ function ApplyLoanForm({
         </p>
       ) : (
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-3">
-          <LabeledInput label="Principal" value={principal} onChange={setPrincipal} type="number" min="1" step="0.01" />
+          <LabeledInput label="Principal" value={principal} onChange={setPrincipal} type="number" min="1" step="0.0001" />
           <div>
             <label className="block text-xs font-medium uppercase tracking-wide text-vault-700">Currency</label>
             <select
@@ -409,7 +409,30 @@ function RecordPaymentDialog({
                 ))}
               </select>
             </div>
-            <LabeledInput label={`Amount (${loan.currencyCode})`} value={amount} onChange={setAmount} type="number" min="0.01" step="0.01" />
+
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-medium uppercase tracking-wide text-vault-700">
+                  Amount ({loan.currencyCode})
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setAmount(loan.outstandingBalance.toString())}
+                  className="text-xs font-medium text-signal-teal hover:underline"
+                >
+                  Pay in full ({formatMoney(loan.outstandingBalance, loan.currencyCode)})
+                </button>
+              </div>
+              <input
+                type="number"
+                min="0.0001"
+                step="0.0001"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="mt-1.5 w-full rounded-md border border-ledger-line bg-white px-3 py-2 text-sm focus:border-signal-teal focus:outline-none focus:ring-1 focus:ring-signal-teal"
+              />
+            </div>
+
             {error && <p className="text-sm text-signal-rose">{error}</p>}
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={onClose} className="rounded-md border border-ledger-line px-4 py-2 text-sm font-medium text-vault-700 hover:bg-vault-50">
